@@ -1,0 +1,30 @@
+# Opens the Duong Global site every 10 minutes so its live satellite photos and channel list stay fresh: the web hosting
+# has no timer of its own and only refreshes when someone visits (owner 25-10). Once a week it also writes a date into
+# this project, because GitHub pauses timed jobs in projects that stay untouched for 60 days.
+name: keep the site fresh
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: open the site
+        run: |
+          for u in api/himawari api/youtube-latest api/himawari/history; do
+            curl -s -o /dev/null -w "%{http_code} $u\n" --max-time 30 "https://nebelspiegel.com/duong/$u" || true
+          done
+      - name: weekly mark
+        if: github.event.schedule == '17 3 * * 1'
+        uses: actions/checkout@v4
+      - name: write the date
+        if: github.event.schedule == '17 3 * * 1'
+        run: |
+          date -u > last-week.txt
+          git config user.name "site keep-alive"; git config user.email "actions@users.noreply.github.com"
+          git add last-week.txt; git commit -m "weekly mark" || true; git push || true
